@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import PhoneInput from 'react-phone-input-2';
@@ -27,8 +27,12 @@ export default function LoginPage() {
 
     try {
       if (!isSignIn) {
+        if (!password) {
+          setError('Password is required for registration');
+          return;
+        }
         // Sign up process
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password || '123456');
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
 
         // Store additional user data in Firestore
@@ -44,7 +48,13 @@ export default function LoginPage() {
 
         router.push('/dashboard'); // Redirect to dashboard after successful signup
       } else {
-        // TODO: Implement sign in logic
+        // Sign in logic
+        if (!password) {
+          setError('Password is required');
+          return;
+        }
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        router.push('/dashboard'); // Redirect to dashboard after successful signin
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
@@ -52,19 +62,6 @@ export default function LoginPage() {
       setLoading(false);
     }
   };
-
-  const countryCodes = [
-    '+225', // Côte d'Ivoire
-    '+1',   // USA/Canada
-    '+33',  // France
-    '+44',  // UK
-    '+86',  // China
-    '+234', // Nigeria
-    '+27',  // South Africa
-    '+81',  // Japan
-    '+49',  // Germany
-    '+91'   // India
-  ];
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#1FAD92] to-white py-20 px-4">
@@ -121,19 +118,30 @@ export default function LoginPage() {
                   <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
                     Téléphone
                   </label>
-                  <PhoneInput
-                    country={'ci'}
+                  <input
+                    type="tel"
+                    id="phone"
                     value={phone}
-                    onChange={phone => setPhone(phone)}
-                    containerClass="mt-1"
-                    inputClass="w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-[#1FAD92] focus:outline-none focus:ring-1 focus:ring-[#1FAD92]"
-                    buttonClass="rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-[#1FAD92] focus:outline-none focus:ring-1 focus:ring-[#1FAD92]"
-                    dropdownClass="bg-white"
-                    searchClass="mt-2 px-3 py-2"
-                    enableSearch={true}
-                    disableSearchIcon={false}
-// PhoneInput component doesn't support the 'required' prop directly
-// We'll need to handle validation elsewhere
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/[^0-9]/g, '');
+                      setPhone(value);
+                    }}
+                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-[#1FAD92] focus:outline-none focus:ring-1 focus:ring-[#1FAD92]"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                    Mot de passe
+                  </label>
+                  <input
+                    type="password"
+                    id="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-[#1FAD92] focus:outline-none focus:ring-1 focus:ring-[#1FAD92]"
+                    required
                   />
                 </div>
               </>

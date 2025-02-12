@@ -29,7 +29,10 @@ const Feature: React.FC<FeatureProps> = ({ title, description, imagePath, button
         alt={imageAlt}
         width={500}
         height={400}
+        priority
+        loading="eager"
         className="rounded-lg shadow-xl transform hover:scale-105 transition-transform duration-300"
+        aria-hidden="false"
       />
     </div>
   </div>
