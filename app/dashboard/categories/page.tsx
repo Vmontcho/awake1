@@ -23,6 +23,7 @@ export default function CategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [newCategory, setNewCategory] = useState({
     name: '',
     icon: '',
@@ -84,6 +85,57 @@ export default function CategoriesPage() {
     } finally {
       setIsCreating(false);
     }
+  };
+
+  const handleEditCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCategory) return;
+    
+    setIsCreating(true);
+    setCreateError('');
+
+    try {
+      await setDoc(doc(db, 'categories', editingCategory.id), {
+        name: newCategory.name,
+        icon: newCategory.icon,
+        description: newCategory.description,
+        availability: newCategory.availability,
+        createdAt: editingCategory.createdAt
+      });
+
+      // Refresh categories list
+      const querySnapshot = await getDocs(collection(db, 'categories'));
+      const categoriesData = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as Category[];
+      setCategories(categoriesData);
+
+      // Reset form and close modal
+      setNewCategory({
+        name: '',
+        icon: '',
+        description: '',
+        availability: 'all'
+      });
+      setEditingCategory(null);
+      setIsModalOpen(false);
+    } catch (error) {
+      setCreateError(error instanceof Error ? error.message : 'An error occurred');
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const startEditing = (category: Category) => {
+    setEditingCategory(category);
+    setNewCategory({
+      name: category.name,
+      icon: category.icon,
+      description: category.description,
+      availability: category.availability
+    });
+    setIsModalOpen(true);
   };
 
   const router = useRouter();
@@ -201,6 +253,14 @@ export default function CategoriesPage() {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {new Date(category.createdAt).toLocaleDateString('fr-FR')}
                       </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button
+                          onClick={() => startEditing(category)}
+                          className="text-[#1FAD92] hover:text-[#178a74]"
+                        >
+                          Modifier
+                        </button>
+                      </td>
                     </tr>
                   ))
                 )}
@@ -213,9 +273,11 @@ export default function CategoriesPage() {
         {isModalOpen && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-xl p-8 max-w-2xl w-full mx-4">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">Créer une catégorie</h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">
+                {editingCategory ? 'Modifier la catégorie' : 'Créer une catégorie'}
+              </h2>
               
-              <form className="space-y-6" onSubmit={handleCreateCategory}>
+              <form className="space-y-6" onSubmit={editingCategory ? handleEditCategory : handleCreateCategory}>
                 <div className="space-y-4">
                   {/* Name */}
                   <div>
@@ -285,7 +347,7 @@ export default function CategoriesPage() {
                     disabled={isCreating}
                     className="bg-[#1FAD92] text-white px-4 py-2 rounded-md hover:bg-opacity-90 transition-colors disabled:opacity-50"
                   >
-                    {isCreating ? 'Création...' : 'Créer la catégorie'}
+                    {isCreating ? 'Enregistrement...' : editingCategory ? 'Modifier la catégorie' : 'Créer la catégorie'}
                   </button>
                 </div>
               </form>
