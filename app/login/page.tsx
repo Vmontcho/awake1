@@ -4,8 +4,9 @@ import { useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
+import { verifyAdminAccess } from '../utils/auth';
 import PhoneInput from 'react-phone-input-2';
 import 'react-phone-input-2/lib/style.css';
 
@@ -54,7 +55,26 @@ export default function LoginPage() {
           return;
         }
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
-        router.push('/dashboard'); // Redirect to dashboard after successful signin
+        // Get user document from Firestore
+        const userDoc = await getDoc(doc(db, 'users', userCredential.user.uid));
+        if (!userDoc.exists()) {
+          setError('User account not found.');
+          return;
+        }
+
+        const userData = userDoc.data();
+        if (userData.status === 'deactivated') {
+          setError('Your account has been deactivated. Please contact support.');
+          return;
+        }
+
+        // Verify if user has admin access
+        const hasAdminAccess = await verifyAdminAccess(userCredential.user);
+        if (hasAdminAccess) {
+          router.push('/dashboard');
+        } else {
+          setError('Access denied. Admin privileges required.');
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
