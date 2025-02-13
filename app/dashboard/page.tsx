@@ -12,7 +12,7 @@ import { useRouter } from 'next/navigation';
 // or
 // yarn add react-icons
 
-import { FiHome, FiUsers, FiSettings, FiLogOut, FiPlus, FiDownload } from 'react-icons/fi';
+import { FiHome, FiUsers, FiSettings, FiLogOut, FiPlus, FiDownload, FiList } from 'react-icons/fi';
 import * as XLSX from 'xlsx';
 
 interface User {
@@ -26,10 +26,34 @@ interface User {
   createdAt: string;
 }
 
+interface Category {
+  id: string;
+  name: string;
+  icon: string;
+  description: string;
+  availability: 'all' | 'free' | 'premium';
+  createdAt: string;
+  taskCount?: number;
+}
+
+import { getCurrentUser } from '../utils/auth';
+
 export default function DashboardPage() {
   const [users, setUsers] = useState<User[]>([]);
+  const [categories, setCategories] = useState([
+    { name: 'Vie spirituelle', icon: '🕊️', count: 150 },
+    { name: 'Vie affective', icon: '❤️', count: 120 },
+    { name: 'Vie professionnelle', icon: '💼', count: 200 },
+    { name: 'Vie familiale', icon: '👨‍👩‍👧‍👦', count: 180 },
+    { name: 'Vie sociale', icon: '🤝', count: 90 },
+    { name: 'Santé', icon: '🏃‍♂️', count: 160 },
+    { name: 'Finances', icon: '💰', count: 110 },
+    { name: 'Personnel', icon: '🎯', count: 140 },
+    { name: 'Intellect', icon: '🎓', count: 130 },
+  ]);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [filterType, setFilterType] = useState('all');
   const [filterRole, setFilterRole] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
@@ -61,23 +85,49 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
-    const fetchUsers = async () => {
+    const fetchData = async () => {
       try {
-        const querySnapshot = await getDocs(collection(db, 'users'));
-        const usersData = querySnapshot.docs.map(doc => ({
+        // Fetch users
+        const usersSnapshot = await getDocs(collection(db, 'users'));
+        const usersData = usersSnapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data(),
         })) as User[];
         setUsers(usersData);
         setFilteredUsers(usersData);
+
+        // Fetch categories
+        const categoriesSnapshot = await getDocs(collection(db, 'categories'));
+        const categoriesData = categoriesSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+        })) as Category[];
+        setCategories(categoriesData.map(category => ({
+          name: category.name,
+          icon: category.icon || '📋',
+          count: category.taskCount || 0
+        })));
       } catch (error) {
-        console.error('Error fetching users:', error);
+        console.error('Error fetching data:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchUsers();
+    fetchData();
+  }, []);
+
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      try {
+        const userData = await getCurrentUser();
+        setCurrentUser(userData);
+      } catch (error) {
+        console.error('Error fetching current user:', error);
+      }
+    };
+
+    fetchCurrentUser();
   }, []);
 
   useEffect(() => {
@@ -103,17 +153,7 @@ export default function DashboardPage() {
     }
   };
 
-  const categories = [
-    { name: 'Vie spirituelle', icon: '🕊️', count: 150 },
-    { name: 'Vie affective', icon: '❤️', count: 120 },
-    { name: 'Vie professionnelle', icon: '💼', count: 200 },
-    { name: 'Vie familiale', icon: '👨‍👩‍👧‍👦', count: 180 },
-    { name: 'Vie sociale', icon: '🤝', count: 90 },
-    { name: 'Santé', icon: '🏃‍♂️', count: 160 },
-    { name: 'Finances', icon: '💰', count: 110 },
-    { name: 'Personnel', icon: '🎯', count: 140 },
-    { name: 'Intellect', icon: '🎓', count: 130 },
-  ];
+
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col lg:flex-row">
@@ -139,6 +179,10 @@ export default function DashboardPage() {
             <FiUsers className="w-6 h-6" />
             <span className="inline text-sm lg:text-base">Users</span>
           </a>
+          <a href="/dashboard/categories" className="flex items-center space-x-2 text-white hover:text-gray-200 transition-colors w-full lg:mb-4">
+            <FiList className="w-6 h-6" />
+            <span className="inline text-sm lg:text-base">Categories</span>
+          </a>
           <a href="/dashboard/settings" className="flex items-center space-x-2 text-white hover:text-gray-200 transition-colors w-full lg:mb-4">
             <FiSettings className="w-6 h-6" />
             <span className="inline text-sm lg:text-base">Settings</span>
@@ -158,7 +202,7 @@ export default function DashboardPage() {
         {/* Welcome Section */}
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Bienvenue, Orélie</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Bienvenue, {currentUser?.name || 'Admin'}</h1>
             <p className="text-gray-600">Voici un aperçu de votre tableau de bord</p>
           </div>
           <button
@@ -212,7 +256,7 @@ export default function DashboardPage() {
                   <span className="text-2xl">{category.icon}</span>
                   <div>
                     <h3 className="text-sm font-medium text-gray-900">{category.name}</h3>
-                    <p className="text-sm text-gray-500">{category.count} tâches</p>
+                    <p className="text-sm text-gray-500">{category.count || 0} tâches</p>
                   </div>
                 </div>
               </div>
