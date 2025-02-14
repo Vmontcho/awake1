@@ -68,12 +68,13 @@ export default function LoginPage() {
           return;
         }
 
-        // Verify if user has admin access
-        const hasAdminAccess = await verifyAdminAccess(userCredential.user);
-        if (hasAdminAccess) {
+        // Check user role and redirect accordingly
+        if (userData.role === 'admin') {
           router.push('/dashboard');
+        } else if (userData.role === 'user') {
+          router.push('/user-dashboard');
         } else {
-          setError('Access denied. Admin privileges required.');
+          setError('Invalid user role.');
         }
       }
     } catch (err) {
