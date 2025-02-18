@@ -1,15 +1,15 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { auth, db } from '../firebase';
-import { signOut } from 'firebase/auth';
 import { collection, getDocs, query, where, writeBatch, doc } from 'firebase/firestore';
+import { signOut, onAuthStateChanged } from 'firebase/auth';
+import { auth, db } from '../firebase';
 import { getCurrentUser } from '../utils/auth';
 import Sidebar from './components/Sidebar';
-import TaskList from './components/TaskList';
 import CategoryGrid from './components/CategoryGrid';
 import DailyQuote from './components/DailyQuote';
+import TaskList from './components/TaskList';
 
 interface User {
   name: string;
@@ -21,12 +21,10 @@ interface Task {
   title: string;
   description: string;
   categoryId: string;
-  status: 'pending' | 'completed';
-  createdAt: string;
+  status: string;
+  deadline: string;
   userId: string;
 }
-
-
 
 export default function UserDashboardPage() {
   const router = useRouter();
@@ -34,36 +32,22 @@ export default function UserDashboardPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [categories, setCategories] = useState<{ id: string; name: string; icon: string; description: string; availability: 'all' | 'free' | 'premium'; createdAt: string; }[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [newTask, setNewTask] = useState({
-    title: '',
-    description: '',
-    categoryId: '',
-    status: 'pending',
-    deadline: new Date().toISOString()
-  });
-
-
-
-  
-
-
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged(async (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (!firebaseUser) {
         router.push('/login');
         return;
       }
-  
+
       try {
         const userData = await getCurrentUser();
-        if (!userData || userData.role !== 'user') {
+        if (!userData || !('role' in userData) || userData.role !== 'user') {
           router.push('/login');
           return;
         }
-        setCurrentUser(userData);
-  
+        setCurrentUser({ name: (userData as any).name || '', role: userData.role as string });
+
         // Fetch categories
         const categoriesSnapshot = await getDocs(collection(db, 'categories'));
         const categoriesData = categoriesSnapshot.docs.map(doc => ({
@@ -91,7 +75,7 @@ export default function UserDashboardPage() {
         setLoading(false);
       }
     });
-  
+
     return () => unsubscribe();
   }, [router]);
 
@@ -137,8 +121,6 @@ export default function UserDashboardPage() {
     <div className="min-h-screen bg-gray-50 flex flex-col lg:flex-row">
       <Sidebar onLogout={handleLogout} />
 
-
-
       <div className="flex-1 p-8 pb-24 lg:pb-8">
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-gray-900">Bienvenue, {currentUser?.name || 'Utilisateur'}</h1>
@@ -153,8 +135,10 @@ export default function UserDashboardPage() {
           categories={categories}
           onEdit={handleEditTask}
           onDelete={handleDeleteTask}
-          onCreateTask={() => setIsModalOpen(true)}
+
         />
+
+
       </div>
     </div>
   );

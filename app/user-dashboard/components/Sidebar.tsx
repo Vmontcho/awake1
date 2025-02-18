@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { FiHome, FiLogOut, FiUser, FiCalendar, FiGift } from 'react-icons/fi';
+import { FiHome, FiList, FiGift, FiUser, FiLogOut } from 'react-icons/fi';
 
 interface SidebarProps {
   onLogout: () => void;
@@ -24,24 +24,20 @@ export default function Sidebar({ onLogout }: SidebarProps) {
         </div>
         <a href="/user-dashboard" className="flex items-center space-x-2 text-white hover:text-gray-200 transition-colors w-full lg:mb-4">
           <FiHome className="w-6 h-6" />
-          <span className="inline text-sm lg:text-base">Accueil</span>
+          <span className="inline text-sm lg:text-base">Home</span>
         </a>
-        
         <a href="/user-dashboard/tasks" className="flex items-center space-x-2 text-white hover:text-gray-200 transition-colors w-full lg:mb-4">
-          <FiCalendar className="w-6 h-6" />
-          <span className="inline text-sm lg:text-base">Tâches</span>
+          <FiList className="w-6 h-6" />
+          <span className="inline text-sm lg:text-base">Tasks</span>
         </a>
-
         <a href="/user-dashboard/gifts" className="flex items-center space-x-2 text-white hover:text-gray-200 transition-colors w-full lg:mb-4">
           <FiGift className="w-6 h-6" />
-          <span className="inline text-sm lg:text-base">Cadeaux</span>
+          <span className="inline text-sm lg:text-base">Gifts</span>
         </a>
-        
         <a href="/user-dashboard/profile" className="flex items-center space-x-2 text-white hover:text-gray-200 transition-colors w-full lg:mb-4">
           <FiUser className="w-6 h-6" />
-          <span className="inline text-sm lg:text-base">Profil</span>
+          <span className="inline text-sm lg:text-base">Profile</span>
         </a>
-
         <button
           onClick={onLogout}
           className="flex items-center space-x-2 text-white hover:text-red-300 transition-colors w-full lg:mt-auto"

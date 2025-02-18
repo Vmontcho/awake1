@@ -1,5 +1,7 @@
 'use client';
 
+import React from 'react';
+
 interface Category {
   id: string;
   name: string;
@@ -13,13 +15,16 @@ interface CategoryGridProps {
   categories: Category[];
 }
 
-export default function CategoryGrid({ categories }: CategoryGridProps) {
+const CategoryGrid: React.FC<CategoryGridProps> = ({ categories }) => {
   return (
     <div className="mb-8">
       <h2 className="text-xl font-bold text-gray-900 mb-4">Catégories</h2>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         {categories.map((category) => (
-          <div key={category.id} className="bg-white p-4 rounded-xl shadow-sm hover:shadow-md transition-shadow">
+          <div
+            key={category.id}
+            className="bg-white p-4 rounded-xl shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+          >
             <div className="flex items-center space-x-3">
               <span className="text-2xl">{category.icon}</span>
               <div>
@@ -32,4 +37,6 @@ export default function CategoryGrid({ categories }: CategoryGridProps) {
       </div>
     </div>
   );
-}
+};
+
+export default CategoryGrid;
