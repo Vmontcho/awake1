@@ -1,0 +1,30 @@
+export interface User {
+  name: string;
+  role: string;
+}
+
+export interface Category {
+  id: string;
+  name: string;
+  icon: string;
+  description: string;
+  availability: 'all' | 'free' | 'premium';
+  createdAt: string;
+}
+
+export interface Task {
+  id: string;
+  title: string;
+  description: string;
+  categoryId: string;
+  status: 'pending' | 'completed';
+  createdAt: string;
+  userId: string;
+}
+
+export interface GeneratedTask {
+  title: string;
+  description?: string;
+  categoryId: string;
+  deadline: string;
+}

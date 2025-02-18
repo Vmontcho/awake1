@@ -6,6 +6,9 @@ const workSans = Work_Sans({
   subsets: ["latin"],
   display: "swap",
   variable: "--font-work-sans",
+  weight: ["400", "500", "600", "700"],
+  preload: true,
+  fallback: ["system-ui", "sans-serif"]
 });
 
 export const metadata: Metadata = {
