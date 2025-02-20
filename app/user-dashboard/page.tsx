@@ -61,8 +61,8 @@ export default function UserDashboardPage() {
         setCategories(categoriesData);
 
         // Fetch user's tasks
-        const tasksQuery = query(collection(db, 'tasks'), where('userId', '==', firebaseUser.uid));
-        const tasksSnapshot = await getDocs(tasksQuery);
+        const userTasksRef = collection(db, 'users', firebaseUser.uid, 'tasks');
+        const tasksSnapshot = await getDocs(userTasksRef);
         const tasksData = tasksSnapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
@@ -96,8 +96,19 @@ export default function UserDashboardPage() {
     );
   }
 
-  const handleEditTask = (taskId: string) => {
-    router.push(`/user-dashboard/tasks/${taskId}`);
+  const handleEditTask = async (taskId: string) => {
+    if (taskId === 'refresh') {
+      // Fetch latest tasks
+      const userTasksRef = collection(db, 'users', auth.currentUser?.uid || '', 'tasks');
+      const tasksSnapshot = await getDocs(userTasksRef);
+      const tasksData = tasksSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Task[];
+      setTasks(tasksData);
+    } else {
+      router.push(`/user-dashboard/tasks/${taskId}`);
+    }
   };
 
   const handleDeleteTask = async (taskId: string) => {

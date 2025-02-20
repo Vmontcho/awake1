@@ -2,10 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { collection, getDocs, doc, setDoc } from 'firebase/firestore';
-import { db } from '../../firebase';
+import { auth, db } from '@/app/firebase';
 import { FiPlus } from 'react-icons/fi';
 import { signOut } from 'firebase/auth';
-import { auth } from '../../firebase';
 import { useRouter } from 'next/navigation';
 import { FiHome, FiUsers, FiSettings, FiLogOut, FiList } from 'react-icons/fi';
 import Image from 'next/image';

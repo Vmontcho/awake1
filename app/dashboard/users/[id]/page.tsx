@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db } from '../../../firebase';
+import { db } from '@/app/firebase';
 import { FiArrowLeft, FiSave } from 'react-icons/fi';
 
 // Initialize Firebase Storage
@@ -23,13 +23,7 @@ interface User {
   profilePicture?: string;
 }
 
-interface PageProps {
-  params: {
-    id: string;
-  };
-}
-
-export default function UserDetailsPage({ params }: PageProps) {
+export default async function UserDetailsPage({ params }: { params: { id: string } }) {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
