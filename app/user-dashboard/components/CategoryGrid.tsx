@@ -9,6 +9,8 @@ interface Category {
   description: string;
   availability: 'all' | 'free' | 'premium';
   createdAt: string;
+  completedTasks?: number;
+  totalTasks?: number;
 }
 
 interface CategoryGridProps {
@@ -23,14 +25,16 @@ const CategoryGrid: React.FC<CategoryGridProps> = ({ categories }) => {
         {categories.map((category) => (
           <div
             key={category.id}
-            className="bg-white p-4 rounded-xl shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+            className="bg-white p-4 rounded-xl shadow-sm hover:shadow-md transition-shadow cursor-pointer relative"
           >
             <div className="flex items-center space-x-3">
               <span className="text-2xl">{category.icon}</span>
               <div>
                 <h3 className="text-sm font-medium text-gray-900">{category.name}</h3>
-                <p className="text-sm text-gray-500">{category.description}</p>
               </div>
+            </div>
+            <div className="absolute bottom-3 right-4 text-sm text-gray-500">
+              {category.completedTasks || 0}/{category.totalTasks || 0}
             </div>
           </div>
         ))}

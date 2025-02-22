@@ -6,7 +6,6 @@ import { collection, getDocs, query, where, writeBatch, doc } from 'firebase/fir
 import { signOut, onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from '../firebase';
 import { getCurrentUser } from '../utils/auth';
-import Sidebar from './components/Sidebar';
 import CategoryGrid from './components/CategoryGrid';
 import DailyQuote from './components/DailyQuote';
 import TaskList from './components/TaskList';
@@ -68,6 +67,20 @@ export default function UserDashboardPage() {
           ...doc.data()
         })) as Task[];
         setTasks(tasksData);
+
+        // Calculate task counts per category
+        const categoriesWithCounts = categoriesData.map(category => {
+          const categoryTasks = tasksData.filter(task => task.categoryId === category.id);
+          const completedTasks = categoryTasks.filter(task => task.status === 'completed').length;
+          const totalTasks = categoryTasks.length;
+          return {
+            ...category,
+            completedTasks,
+            totalTasks
+          };
+        });
+        setCategories(categoriesWithCounts);
+
       } catch (error) {
         console.error('Error fetching user data:', error);
         router.push('/login');
@@ -79,19 +92,15 @@ export default function UserDashboardPage() {
     return () => unsubscribe();
   }, [router]);
 
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      router.push('/login');
-    } catch (error) {
-      console.error('Error signing out:', error);
-    }
-  };
-
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">Chargement...</div>
+      <div className="p-8">
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold text-gray-900">Chargement...</h1>
+        </div>
+        <div className="flex items-center justify-center h-[60vh]">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1FAD92]"></div>
+        </div>
       </div>
     );
   }
@@ -106,6 +115,20 @@ export default function UserDashboardPage() {
         ...doc.data()
       })) as Task[];
       setTasks(tasksData);
+
+      // Update category counts
+      setCategories(prevCategories => 
+        prevCategories.map(category => {
+          const categoryTasks = tasksData.filter(task => task.categoryId === category.id);
+          const completedTasks = categoryTasks.filter(task => task.status === 'completed').length;
+          const totalTasks = categoryTasks.length;
+          return {
+            ...category,
+            completedTasks,
+            totalTasks
+          };
+        })
+      );
     } else {
       router.push(`/user-dashboard/tasks/${taskId}`);
     }
@@ -116,11 +139,26 @@ export default function UserDashboardPage() {
       try {
         // Delete task from Firestore
         await writeBatch(db)
-          .delete(doc(db, 'tasks', taskId))
+          .delete(doc(db, 'users', auth.currentUser?.uid || '', 'tasks', taskId))
           .commit();
   
         // Update local state
-        setTasks(prevTasks => prevTasks.filter(task => task.id !== taskId));
+        const updatedTasks = tasks.filter(task => task.id !== taskId);
+        setTasks(updatedTasks);
+
+        // Update category counts
+        setCategories(prevCategories => 
+          prevCategories.map(category => {
+            const categoryTasks = updatedTasks.filter(task => task.categoryId === category.id);
+            const completedTasks = categoryTasks.filter(task => task.status === 'completed').length;
+            const totalTasks = categoryTasks.length;
+            return {
+              ...category,
+              completedTasks,
+              totalTasks
+            };
+          })
+        );
       } catch (error) {
         console.error('Error deleting task:', error);
         alert('Une erreur est survenue lors de la suppression de la tâche.');
@@ -129,28 +167,21 @@ export default function UserDashboardPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col lg:flex-row">
-      <Sidebar onLogout={handleLogout} />
-
-      <div className="flex-1 p-8 pb-24 lg:pb-8">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">Bienvenue, {currentUser?.name || 'Utilisateur'}</h1>
-          <p className="text-gray-600">Voici un aperçu de votre progression</p>
-        </div>
-
-        <CategoryGrid categories={categories} />
-        <DailyQuote />
-  
-        <TaskList
-          tasks={tasks}
-          categories={categories}
-          onEdit={handleEditTask}
-          onDelete={handleDeleteTask}
-
-        />
-
-
+    <div className="p-8">
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-gray-900">Bienvenue, {currentUser?.name || 'Utilisateur'}</h1>
+        <p className="text-gray-600">Voici un aperçu de votre progression</p>
       </div>
+
+      <CategoryGrid categories={categories} />
+      <DailyQuote />
+
+      <TaskList
+        tasks={tasks}
+        categories={categories}
+        onEdit={handleEditTask}
+        onDelete={handleDeleteTask}
+      />
     </div>
   );
 }

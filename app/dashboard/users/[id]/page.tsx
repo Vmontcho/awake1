@@ -23,7 +23,16 @@ interface User {
   profilePicture?: string;
 }
 
-export default async function UserDetailsPage({ params }: { params: { id: string } }) {
+interface PageParams {
+  id: string;
+}
+
+interface Props {
+  params: PageParams;
+  searchParams: { [key: string]: string | string[] | undefined };
+}
+
+export default function Page({ params }: Props) {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -92,7 +101,7 @@ export default async function UserDetailsPage({ params }: { params: { id: string
       // Show success message
       alert('User updated successfully');
     } catch (err) {
-      setError('Failed to update user');
+      setError('Error updating user');
       console.error('Error:', err);
     } finally {
       setSaving(false);
@@ -100,176 +109,151 @@ export default async function UserDetailsPage({ params }: { params: { id: string
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 p-8">
-        <div className="text-center">Loading...</div>
-      </div>
-    );
+    return <div>Loading...</div>;
   }
 
   if (error) {
-    return (
-      <div className="min-h-screen bg-gray-50 p-8">
-        <div className="text-red-600 text-center">{error}</div>
-      </div>
-    );
+    return <div>Error: {error}</div>;
   }
 
   if (!user) {
-    return (
-      <div className="min-h-screen bg-gray-50 p-8">
-        <div className="text-center">User not found</div>
-      </div>
-    );
+    return <div>User not found</div>;
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <button
-            onClick={() => router.back()}
-            className="flex items-center text-gray-600 hover:text-gray-900"
-          >
-            <FiArrowLeft className="w-5 h-5 mr-2" />
-            Retour
-          </button>
+    <div className="p-6">
+      <div className="flex items-center mb-6">
+        <button
+          onClick={() => router.back()}
+          className="flex items-center text-gray-600 hover:text-gray-900"
+        >
+          <FiArrowLeft className="mr-2" /> Back
+        </button>
+      </div>
+
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <h1 className="text-2xl font-bold mb-6">Edit User</h1>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Profile Picture
+            </label>
+            {user.profilePicture && (
+              <div className="mb-4">
+                <Image
+                  src={user.profilePicture}
+                  alt="Profile"
+                  width={100}
+                  height={100}
+                  className="rounded-full"
+                />
+              </div>
+            )}
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) setNewProfilePicture(file);
+              }}
+              className="block w-full text-sm text-gray-500
+                file:mr-4 file:py-2 file:px-4
+                file:rounded-full file:border-0
+                file:text-sm file:font-semibold
+                file:bg-violet-50 file:text-violet-700
+                hover:file:bg-violet-100"
+            />
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Name
+              </label>
+              <input
+                type="text"
+                value={editedUser.name || ''}
+                onChange={(e) => setEditedUser({ ...editedUser, name: e.target.value })}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Surname
+              </label>
+              <input
+                type="text"
+                value={editedUser.surname || ''}
+                onChange={(e) => setEditedUser({ ...editedUser, surname: e.target.value })}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Email
+              </label>
+              <input
+                type="email"
+                value={editedUser.email || ''}
+                onChange={(e) => setEditedUser({ ...editedUser, email: e.target.value })}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Phone Number
+              </label>
+              <input
+                type="tel"
+                value={editedUser.phoneNumber || ''}
+                onChange={(e) => setEditedUser({ ...editedUser, phoneNumber: e.target.value })}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Role
+              </label>
+              <select
+                value={editedUser.role || ''}
+                onChange={(e) => setEditedUser({ ...editedUser, role: e.target.value })}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              >
+                <option value="user">User</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Status
+              </label>
+              <select
+                value={editedUser.status || ''}
+                onChange={(e) => setEditedUser({ ...editedUser, status: e.target.value })}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              >
+                <option value="activated">Activated</option>
+                <option value="deactivated">Deactivated</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-6 flex justify-end">
           <button
             onClick={handleSave}
             disabled={saving}
-            className="flex items-center bg-[#1FAD92] text-white px-4 py-2 rounded-md hover:bg-opacity-90 transition-colors disabled:opacity-50"
+            className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
           >
-            <FiSave className="w-5 h-5 mr-2" />
-            {saving ? 'Enregistrement...' : 'Enregistrer'}
+            <FiSave className="mr-2" />
+            {saving ? 'Saving...' : 'Save Changes'}
           </button>
-        </div>
-
-        {/* User Details Form */}
-        <div className="bg-white rounded-xl shadow-sm p-8">
-          <h1 className="text-2xl font-bold text-gray-900 mb-8">
-            Détails de l'utilisateur
-          </h1>
-
-          <div className="space-y-6">
-            {/* Profile Picture */}
-            <div className="flex items-center space-x-6">
-              <div className="relative w-24 h-24">
-                <Image
-                  src={user.profilePicture || '/default-avatar.png'}
-                  alt={`${user.name} ${user.surname}`}
-                  fill
-                  className="rounded-full object-cover"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Changer la photo de profil
-                </label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => setNewProfilePicture(e.target.files?.[0] || null)}
-                  className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-[#1FAD92] file:text-white hover:file:bg-opacity-90"
-                />
-              </div>
-            </div>
-
-            {/* Personal Information */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Nom
-                </label>
-                <input
-                  type="text"
-                  value={editedUser.name || ''}
-                  onChange={(e) => setEditedUser({ ...editedUser, name: e.target.value })}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-[#1FAD92] focus:outline-none focus:ring-1 focus:ring-[#1FAD92]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Prénom
-                </label>
-                <input
-                  type="text"
-                  value={editedUser.surname || ''}
-                  onChange={(e) => setEditedUser({ ...editedUser, surname: e.target.value })}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-[#1FAD92] focus:outline-none focus:ring-1 focus:ring-[#1FAD92]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  value={editedUser.email || ''}
-                  onChange={(e) => setEditedUser({ ...editedUser, email: e.target.value })}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-[#1FAD92] focus:outline-none focus:ring-1 focus:ring-[#1FAD92]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Téléphone
-                </label>
-                <input
-                  type="tel"
-                  value={editedUser.phoneNumber || ''}
-                  onChange={(e) => setEditedUser({ ...editedUser, phoneNumber: e.target.value })}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-[#1FAD92] focus:outline-none focus:ring-1 focus:ring-[#1FAD92]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Role
-                </label>
-                <select
-                  value={editedUser.role || 'user'}
-                  onChange={(e) => setEditedUser({ ...editedUser, role: e.target.value })}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-[#1FAD92] focus:outline-none focus:ring-1 focus:ring-[#1FAD92]"
-                >
-                  <option value="user">Utilisateur</option>
-                  <option value="admin">Admin</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  État
-                </label>
-                <select
-                  value={editedUser.status || 'activated'}
-                  onChange={(e) => setEditedUser({ ...editedUser, status: e.target.value })}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-[#1FAD92] focus:outline-none focus:ring-1 focus:ring-[#1FAD92]"
-                >
-                  <option value="activated">Activé</option>
-                  <option value="deactivated">Désactivé</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Created At */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Date de création
-              </label>
-              <div className="text-gray-600">
-                {new Date(user.createdAt).toLocaleDateString('fr-FR', {
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit'
-                })}
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>

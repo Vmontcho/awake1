@@ -8,6 +8,7 @@ import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { FiHome, FiUsers, FiSettings, FiLogOut, FiList } from 'react-icons/fi';
 import Image from 'next/image';
+import Link from 'next/link';
 
 interface Category {
   id: string;
@@ -164,22 +165,22 @@ export default function CategoriesPage() {
             <h1 className="text-xl font-bold text-white mb-1">Awakening Lifeplanner</h1>
             <p className="text-sm text-white/80">Admin dashboard</p>
           </div>
-          <a href="/dashboard" className="flex items-center space-x-2 text-white hover:text-gray-200 transition-colors w-full lg:mb-4">
+          <Link href="/dashboard" className="flex items-center space-x-2 text-white hover:text-gray-200 transition-colors w-full lg:mb-4">
             <FiHome className="w-6 h-6" />
             <span className="inline text-sm lg:text-base">Home</span>
-          </a>
-          <a href="/dashboard/users" className="flex items-center space-x-2 text-white hover:text-gray-200 transition-colors w-full lg:mb-4">
+          </Link>
+          <Link href="/dashboard/users" className="flex items-center space-x-2 text-white hover:text-gray-200 transition-colors w-full lg:mb-4">
             <FiUsers className="w-6 h-6" />
             <span className="inline text-sm lg:text-base">Users</span>
-          </a>
-          <a href="/dashboard/categories" className="flex items-center space-x-2 text-white hover:text-gray-200 transition-colors w-full lg:mb-4">
+          </Link>
+          <Link href="/dashboard/categories" className="flex items-center space-x-2 text-white hover:text-gray-200 transition-colors w-full lg:mb-4">
             <FiList className="w-6 h-6" />
             <span className="inline text-sm lg:text-base">Categories</span>
-          </a>
-          <a href="/dashboard/settings" className="flex items-center space-x-2 text-white hover:text-gray-200 transition-colors w-full lg:mb-4">
+          </Link>
+          <Link href="/dashboard/settings" className="flex items-center space-x-2 text-white hover:text-gray-200 transition-colors w-full lg:mb-4">
             <FiSettings className="w-6 h-6" />
             <span className="inline text-sm lg:text-base">Settings</span>
-          </a>
+          </Link>
           <button
             onClick={handleLogout}
             className="flex items-center space-x-2 text-white hover:text-red-300 transition-colors w-full lg:mt-auto"

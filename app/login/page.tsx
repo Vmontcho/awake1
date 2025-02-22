@@ -6,9 +6,6 @@ import { useRouter } from 'next/navigation';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/app/firebase';
-// Remove unused import since verifyAdminAccess is not used in this file
-import PhoneInput from 'react-phone-input-2';
-import 'react-phone-input-2/lib/style.css';
 
 export default function LoginPage() {
   const [isSignIn, setIsSignIn] = useState(true);

@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 
 const DailyQuote: React.FC = () => {
-  const [quote, setQuote] = useState({
+  const [quote] = useState({
     text: 'La vie est un défi à relever, un bonheur à mériter, une aventure à tenter.',
     author: 'Mère Teresa'
   });

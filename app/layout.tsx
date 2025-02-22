@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Work_Sans } from "next/font/google";
 import "./globals.css";
+import { AuthProvider } from './providers/AuthProvider';
 
 const workSans = Work_Sans({
   subsets: ["latin"],
@@ -12,8 +13,8 @@ const workSans = Work_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Awakening - Your Intelligent Life Planner",
-  description: "Organize your life with smart task generation, daily motivation, and personalized rewards.",
+  title: "Awakening Lifeplanner",
+  description: "Your personal life planning assistant",
 };
 
 export default function RootLayout({
@@ -26,7 +27,9 @@ export default function RootLayout({
       <body
         className={`${workSans.variable} font-sans antialiased`}
       >
-        {children}
+        <AuthProvider>
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );
