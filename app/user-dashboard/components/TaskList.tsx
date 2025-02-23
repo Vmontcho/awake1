@@ -2,9 +2,8 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { FiEdit2, FiTrash2, FiPlus } from 'react-icons/fi';
-import OpenAI from 'openai';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
-import { collection, getDocs, query, where, writeBatch, doc, updateDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { db, auth } from '@/app/firebase';
 import { useRouter } from 'next/navigation';
 
@@ -36,10 +35,10 @@ interface TaskListProps {
 
 const TaskList: React.FC<TaskListProps> = ({ tasks, categories, onEdit, onDelete }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [taskInput, setTaskInput] = useState('');
-  const [generatedTasks, setGeneratedTasks] = useState<any[]>([]);
-  const [isGenerating, setIsGenerating] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [taskInput, setTaskInput] = useState('');
+  const [generatedTasks, setGeneratedTasks] = useState<Task[]>([]);
+  const [isGenerating, setIsGenerating] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
 
   const handleSaveEdit = async () => {
@@ -121,87 +120,7 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, categories, onEdit, onDelete
   }, [router]);
 
 
-  const handleGenerateTask = async () => {
-    setIsGenerating(true);
-    try {
-      const client = new OpenAI({
-        baseURL: process.env.NEXT_PUBLIC_OPENAI_API_BASE_URL,
-        apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
-        dangerouslyAllowBrowser: true,
-      });
-  
-      const response = await client.chat.completions.create({
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a task planning assistant. Generate SMART (Specific, Measurable, Achievable, Relevant, Time-bound) tasks based on the user\'s objective. Return ONLY a valid JSON array of tasks without any markdown formatting or additional text. Each task object should have these properties: {"title": string, "description": string, "deadline": ISO date string, "status": "pending", "categoryId": string}',
-          },
-          { role: 'user', content: taskInput },
-        ],
-        model: 'gpt-4o',
-        temperature: 0.7,
-        max_tokens: 4096,
-        top_p: 1,
-      });
-  
-      let tasksData;
-      try {
-        const content = response.choices[0].message.content || '[]';
-        const jsonStr = content.replace(/^```json\s*|```\s*$/g, '').trim();
-        tasksData = JSON.parse(jsonStr);
-        setGeneratedTasks(tasksData);
-      } catch (parseError) {
-        console.error('Error parsing AI response:', parseError);
-        throw new Error('Failed to parse the AI response into valid JSON');
-      }
-    } catch (error) {
-      console.error('Error generating tasks:', error);
-      alert('Failed to generate tasks: ' + (error instanceof Error ? error.message : 'Unknown error'));
-    } finally {
-      setIsGenerating(false);
-    }
-  };
 
-  const handleConfirmTasks = async () => {
-    try {
-      const auth = getAuth();
-      const user = auth.currentUser;
-
-      if (!user) {
-        alert('Please sign in to create tasks');
-        return;
-      }
-
-      const batch = writeBatch(db);
-      const createdTasks = [];
-
-      for (const task of generatedTasks) {
-        const userTasksRef = collection(db, 'users', user.uid, 'tasks');
-        const taskRef = doc(userTasksRef);
-        const taskData = {
-          ...task,
-          userId: user.uid,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-        batch.set(taskRef, taskData);
-        createdTasks.push({ ...taskData, id: taskRef.id });
-      }
-
-      await batch.commit();
-
-      // Close modal and reset state
-      setIsModalOpen(false);
-      setTaskInput('');
-      setGeneratedTasks([]);
-
-      // Update tasks in parent component using the onEdit callback
-      onEdit('refresh');
-    } catch (error) {
-      console.error('Error saving tasks:', error);
-      alert('Failed to save tasks: ' + (error instanceof Error ? error.message : 'Unknown error'));
-    }
-  };
 
   const getCategoryName = (categoryId: string) => {
     const category = categories.find(cat => cat.id === categoryId);

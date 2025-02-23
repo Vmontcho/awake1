@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { auth, db } from '@/app/firebase';
 
 export default function LoginPage() {
@@ -14,6 +15,7 @@ export default function LoginPage() {
   const [name, setName] = useState('');
   const [surname, setSurname] = useState('');
   const [phone, setPhone] = useState('');
+  const [profilePicture, setProfilePicture] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
@@ -34,6 +36,20 @@ export default function LoginPage() {
         const user = userCredential.user;
 
         // Store additional user data in Firestore
+        // Upload profile picture if provided
+        let profilePictureUrl = '';
+        if (profilePicture) {
+          if (profilePicture.size > 5 * 1024 * 1024) { // 5MB limit
+            setError('Profile picture must be less than 5MB');
+            return;
+          }
+          const storage = getStorage();
+          const storageRef = ref(storage, `profile-pictures/${user.uid}`);
+          await uploadBytes(storageRef, profilePicture);
+          profilePictureUrl = await getDownloadURL(storageRef);
+        }
+
+        // Store user data in Firestore
         await setDoc(doc(db, 'users', user.uid), {
           name,
           surname,
@@ -41,6 +57,7 @@ export default function LoginPage() {
           phoneNumber: phone,
           role: 'user',
           status: 'activated',
+          profilePicture: profilePictureUrl,
           createdAt: new Date().toISOString()
         });
 
@@ -146,6 +163,26 @@ export default function LoginPage() {
                     }}
                     className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-[#1FAD92] focus:outline-none focus:ring-1 focus:ring-[#1FAD92]"
                     required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Photo de profil
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) setProfilePicture(file);
+                    }}
+                    className="mt-1 block w-full text-sm text-gray-500
+                      file:mr-4 file:py-2 file:px-4
+                      file:rounded-full file:border-0
+                      file:text-sm file:font-semibold
+                      file:bg-violet-50 file:text-violet-700
+                      hover:file:bg-violet-100"
                   />
                 </div>
 
