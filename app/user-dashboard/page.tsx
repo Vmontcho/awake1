@@ -181,6 +181,8 @@ export default function UserDashboardPage() {
         categories={categories}
         onEdit={handleEditTask}
         onDelete={handleDeleteTask}
+        setTasks={setTasks}
+        setCategories={setCategories}
       />
     </div>
   );

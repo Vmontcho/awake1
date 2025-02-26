@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { collection, getDocs, doc, setDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, setDoc, onSnapshot } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { auth, db } from '../firebase';
 import { signOut, createUserWithEmailAndPassword } from 'firebase/auth';
@@ -86,36 +86,77 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // Fetch users
-        const usersSnapshot = await getDocs(collection(db, 'users'));
-        const usersData = usersSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-        })) as User[];
-        setUsers(usersData);
-        setFilteredUsers(usersData);
+    const unsubscribeHandlers: (() => void)[] = [];
 
-        // Fetch categories
-        const categoriesSnapshot = await getDocs(collection(db, 'categories'));
-        const categoriesData = categoriesSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-        })) as Category[];
-        setCategories(categoriesData.map(category => ({
-          name: category.name,
-          icon: category.icon || '📋',
-          count: category.taskCount || 0
-        })));
+    const setupRealTimeListeners = async () => {
+      try {
+        // Real-time users listener
+        const usersUnsubscribe = onSnapshot(collection(db, 'users'), (snapshot) => {
+          const usersData = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+          })) as User[];
+          setUsers(usersData);
+          setFilteredUsers(usersData);
+
+          // Update task counts for each user
+          let totalTasks = 0;
+          let completedTasks = 0;
+
+          usersData.forEach(user => {
+            const userTasksRef = collection(db, 'users', user.id, 'tasks');
+            const userTasksUnsubscribe = onSnapshot(userTasksRef, (tasksSnapshot) => {
+              const userTasks = tasksSnapshot.docs.length;
+              const userCompletedTasks = tasksSnapshot.docs.filter(
+                doc => doc.data().status === 'completed'
+              ).length;
+
+              totalTasks += userTasks;
+              completedTasks += userCompletedTasks;
+
+              // Update task statistics in the UI
+              const taskStatsElement = document.querySelector('[data-testid="total-tasks"]');
+              if (taskStatsElement) {
+                taskStatsElement.textContent = totalTasks.toString();
+              }
+
+              const completedTasksElement = document.querySelector('[data-testid="completed-tasks"]');
+              if (completedTasksElement) {
+                completedTasksElement.textContent = completedTasks.toString();
+              }
+            });
+            unsubscribeHandlers.push(userTasksUnsubscribe);
+          });
+        });
+        unsubscribeHandlers.push(usersUnsubscribe);
+
+        // Real-time categories listener
+        const categoriesUnsubscribe = onSnapshot(collection(db, 'categories'), (snapshot) => {
+          const categoriesData = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+          })) as Category[];
+          setCategories(categoriesData.map(category => ({
+            name: category.name,
+            icon: category.icon || '📋',
+            count: category.taskCount || 0
+          })));
+        });
+        unsubscribeHandlers.push(categoriesUnsubscribe);
+
       } catch (error) {
-        console.error('Error fetching data:', error);
+        console.error('Error setting up real-time listeners:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchData();
+    setupRealTimeListeners();
+
+    // Cleanup function to unsubscribe from all listeners
+    return () => {
+      unsubscribeHandlers.forEach(unsubscribe => unsubscribe());
+    };
   }, []);
 
   useEffect(() => {
@@ -244,14 +285,14 @@ export default function DashboardPage() {
           <div className="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow">
             <h3 className="text-gray-500 text-sm mb-1">Tâches créées</h3>
             <div className="flex items-center">
-              <span className="text-2xl font-bold text-gray-900">20000</span>
+              <span className="text-2xl font-bold text-gray-900" data-testid="total-tasks">0</span>
             </div>
           </div>
 
           <div className="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow">
             <h3 className="text-gray-500 text-sm mb-1">Tâches effectuées</h3>
             <div className="flex items-center">
-              <span className="text-2xl font-bold text-gray-900">5308</span>
+              <span className="text-2xl font-bold text-gray-900" data-testid="completed-tasks">0</span>
             </div>
           </div>
         </div>

@@ -3,9 +3,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { FiEdit2, FiTrash2, FiPlus } from 'react-icons/fi';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
-import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, writeBatch } from 'firebase/firestore';
 import { db, auth } from '@/app/firebase';
 import { useRouter } from 'next/navigation';
+import OpenAI from 'openai';
 
 interface Task {
   id: string;
@@ -31,6 +32,8 @@ interface TaskListProps {
   categories: Category[];
   onEdit: (taskId: string) => void;
   onDelete: (taskId: string) => void;
+  setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
+  setCategories: React.Dispatch<React.SetStateAction<Category[]>>;
 }
 
 const TaskList: React.FC<TaskListProps> = ({ tasks, categories, onEdit, onDelete }) => {
@@ -39,7 +42,19 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, categories, onEdit, onDelete
   const [taskInput, setTaskInput] = useState('');
   const [generatedTasks, setGeneratedTasks] = useState<Task[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
   const modalRef = useRef<HTMLDivElement>(null);
+
+  // Calculate pagination
+  const indexOfLastTask = currentPage * itemsPerPage;
+  const indexOfFirstTask = indexOfLastTask - itemsPerPage;
+  const currentTasks = tasks.slice(indexOfFirstTask, indexOfLastTask);
+  const totalPages = Math.ceil(tasks.length / itemsPerPage);
+
+  const handlePageChange = (pageNumber: number) => {
+    setCurrentPage(pageNumber);
+  };
 
   const handleSaveEdit = async () => {
     try {
@@ -60,6 +75,104 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, categories, onEdit, onDelete
     } catch (error) {
       console.error('Error updating task:', error);
       alert('Failed to update task: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    }
+  };
+
+  const handleGenerateTask = async () => {
+    if (!taskInput.trim()) return;
+    
+    setIsGenerating(true);
+    try {
+      const auth = getAuth();
+      const user = auth.currentUser;
+
+      if (!user) {
+        alert('Please sign in to generate tasks');
+        return;
+      }
+
+      const client = new OpenAI({
+        baseURL: process.env.NEXT_PUBLIC_OPENAI_API_BASE_URL,
+        apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
+        dangerouslyAllowBrowser: true,
+      });
+
+      const response = await client.chat.completions.create({
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a task planning assistant. Generate SMART (Specific, Measurable, Achievable, Relevant, Time-bound) tasks based on the user\'s objective. Return ONLY a valid JSON array of tasks without any markdown formatting or additional text. Each task object should have these properties: {"title": string, "description": string, "deadline": ISO date string, "status": "pending", "categoryId": string}',
+          },
+          { role: 'user', content: taskInput },
+        ],
+        model: 'gpt-4o',
+        temperature: 0.7,
+        max_tokens: 4096,
+        top_p: 1,
+      });
+
+      let tasksData;
+      try {
+        const content = response.choices[0].message.content || '[]';
+        const jsonStr = content.replace(/^```json\s*|```\s*$/g, '').trim();
+        tasksData = JSON.parse(jsonStr);
+      } catch (parseError) {
+        console.error('Error parsing AI response:', parseError);
+        throw new Error('Failed to parse the AI response into valid JSON');
+      }
+
+      const generatedTasksData = tasksData.map((task: any) => ({
+        id: Math.random().toString(36).substr(2, 9),
+        title: task.title,
+        description: task.description,
+        categoryId: categories[0]?.id || '',
+        status: task.status || 'pending',
+        deadline: task.deadline || new Date().toISOString(),
+        userId: user.uid
+      }));
+
+      setGeneratedTasks(generatedTasksData);
+    } catch (error) {
+      console.error('Error generating tasks:', error);
+      alert('Failed to generate tasks: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleConfirmTasks = async () => {
+    try {
+      const auth = getAuth();
+      const user = auth.currentUser;
+
+      if (!user) {
+        alert('Please sign in to save tasks');
+        return;
+      }
+
+      const batch = writeBatch(db);
+      const createdTasks = [];
+
+      for (const task of generatedTasks) {
+        const taskRef = doc(collection(db, 'users', user.uid, 'tasks'));
+        const taskData = {
+          ...task,
+          userId: user.uid,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        batch.set(taskRef, taskData);
+        createdTasks.push({ ...taskData, id: taskRef.id });
+      }
+
+      await batch.commit();
+      onEdit('refresh');
+      setIsModalOpen(false);
+      setTaskInput('');
+      setGeneratedTasks([]);
+    } catch (error) {
+      console.error('Error saving tasks:', error);
+      alert('Failed to save tasks: ' + (error instanceof Error ? error.message : 'Unknown error'));
     }
   };
 
@@ -160,7 +273,7 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, categories, onEdit, onDelete
                 </td>
               </tr>
             ) : (
-              tasks.map((task) => (
+              currentTasks.map((task) => (
                 <tr key={task.id}>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                     {task.title}
@@ -213,6 +326,41 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, categories, onEdit, onDelete
             )}
           </tbody>
         </table>
+
+        {/* Pagination Controls */}
+        {tasks.length > 0 && (
+          <div className="flex justify-center items-center space-x-2 mt-4">
+            <button
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              className="px-3 py-1 rounded-md bg-gray-100 text-gray-700 disabled:opacity-50"
+            >
+              Précédent
+            </button>
+            
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+              <button
+                key={page}
+                onClick={() => handlePageChange(page)}
+                className={`px-3 py-1 rounded-md ${
+                  currentPage === page
+                    ? 'bg-[#1FAD92] text-white'
+                    : 'bg-gray-100 text-gray-700'
+                }`}
+              >
+                {page}
+              </button>
+            ))}
+
+            <button
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className="px-3 py-1 rounded-md bg-gray-100 text-gray-700 disabled:opacity-50"
+            >
+              Suivant
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Task Creation/Edit Modal */}
@@ -253,7 +401,7 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, categories, onEdit, onDelete
                     >
                       {categories.map((category) => (
                         <option key={category.id} value={category.id}>
-                          {category.name}
+                          {category.icon} {category.name}
                         </option>
                       ))}
                     </select>
@@ -273,8 +421,8 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, categories, onEdit, onDelete
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Date limite</label>
                   <input
-                    type="date"
-                    value={editingTask.deadline.split('T')[0]}
+                    type="datetime-local"
+                    value={editingTask.deadline ? new Date(editingTask.deadline).toISOString().slice(0, 16) : ''}
                     onChange={(e) => setEditingTask({ ...editingTask, deadline: new Date(e.target.value).toISOString() })}
                     className="w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-[#1FAD92] focus:outline-none focus:ring-1 focus:ring-[#1FAD92]"
                   />
@@ -285,13 +433,13 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, categories, onEdit, onDelete
                       setIsModalOpen(false);
                       setEditingTask(null);
                     }}
-                    className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-500"
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#1FAD92]"
                   >
                     Annuler
                   </button>
                   <button
                     onClick={handleSaveEdit}
-                    className="bg-[#1FAD92] text-white px-4 py-2 rounded-md hover:bg-opacity-90 transition-colors"
+                    className="px-4 py-2 text-sm font-medium text-white bg-[#1FAD92] border border-transparent rounded-md shadow-sm hover:bg-[#178a74] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#1FAD92]"
                   >
                     Enregistrer les modifications
                   </button>
@@ -395,14 +543,14 @@ const TaskList: React.FC<TaskListProps> = ({ tasks, categories, onEdit, onDelete
                       setTaskInput('');
                       setGeneratedTasks([]);
                     }}
-                    className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-500"
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#1FAD92]"
                   >
                     Annuler
                   </button>
                   {generatedTasks.length > 0 ? (
                     <button
                       onClick={handleConfirmTasks}
-                      className="bg-[#1FAD92] text-white px-4 py-2 rounded-md hover:bg-opacity-90 transition-colors"
+                      className="px-4 py-2 text-sm font-medium text-white bg-[#1FAD92] border border-transparent rounded-md shadow-sm hover:bg-[#178a74] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#1FAD92]"
                     >
                       Confirmer les tâches
                     </button>

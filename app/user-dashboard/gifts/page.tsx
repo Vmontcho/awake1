@@ -10,10 +10,16 @@ interface Gift {
   id: string;
   title: string;
   description: string;
-  price: number;
-  status: string;
-  deadline: string;
-  userId: string;
+  category: string;
+  status: 'to_obtain' | 'acquired' | 'cancelled';
+  deadline?: string;
+}
+
+interface Category {
+  id: string;
+  name: string;
+  icon: string;
+  description: string;
 }
 
 export default function GiftsPage() {
@@ -21,6 +27,10 @@ export default function GiftsPage() {
   const [gifts, setGifts] = useState<Gift[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState('all');
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingGift, setEditingGift] = useState<Gift | null>(null);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -29,6 +39,16 @@ export default function GiftsPage() {
           router.push('/login');
           return;
         }
+
+        // Fetch categories from database
+        const categoriesSnapshot = await getDocs(collection(db, 'categories'));
+        const categoriesData = categoriesSnapshot.docs.map(doc => ({
+          id: doc.id,
+          name: doc.data().name || '',
+          icon: doc.data().icon || '',
+          description: doc.data().description || ''
+        }));
+        setCategories(categoriesData);
 
         // Fetch user's gifts
         const userGiftsRef = collection(db, 'users', auth.currentUser.uid, 'gifts');
@@ -47,6 +67,35 @@ export default function GiftsPage() {
 
     fetchData();
   }, [router]);
+
+  const handleSaveEdit = async () => {
+    if (!editingGift || !auth.currentUser) return;
+    setSaving(true);
+
+    try {
+      const giftRef = doc(db, 'users', auth.currentUser.uid, 'gifts', editingGift.id);
+      await writeBatch(db)
+        .update(giftRef, {
+          ...editingGift,
+          updatedAt: new Date().toISOString()
+        })
+        .commit();
+
+      setGifts(prevGifts =>
+        prevGifts.map(gift =>
+          gift.id === editingGift.id ? editingGift : gift
+        )
+      );
+
+      setIsModalOpen(false);
+      setEditingGift(null);
+    } catch (error) {
+      console.error('Error updating gift:', error);
+      alert('Une erreur est survenue lors de la mise à jour du cadeau.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleDeleteGift = async (giftId: string) => {
     if (window.confirm('Êtes-vous sûr de vouloir supprimer ce cadeau ?')) {
@@ -85,8 +134,9 @@ export default function GiftsPage() {
               disabled={loading}
             >
               <option value="all">Tous les états</option>
-              <option value="pending">En attente</option>
-              <option value="purchased">Acheté</option>
+              <option value="to_obtain">À obtenir</option>
+              <option value="acquired">Acquis</option>
+              <option value="cancelled">Annulé</option>
             </select>
           </div>
           <button
@@ -98,89 +148,146 @@ export default function GiftsPage() {
           </button>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="min-w-full">
-            <thead>
-              <tr className="border-b border-gray-200">
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Titre</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prix</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">État</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date limite</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {loading ? (
-                <tr>
-                  <td colSpan={6} className="px-6 py-4">
-                    <div className="flex items-center justify-center">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#1FAD92]"></div>
-                      <span className="ml-2 text-gray-500">Chargement...</span>
-                    </div>
-                  </td>
-                </tr>
-              ) : filteredGifts.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
-                    Aucun cadeau trouvé
-                  </td>
-                </tr>
-              ) : (
-                filteredGifts.map((gift) => (
-                  <tr key={gift.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {gift.title}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-500">
-                      {gift.description}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {gift.price.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          gift.status === 'purchased'
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-yellow-100 text-yellow-800'
-                        }`}
-                      >
-                        {gift.status === 'purchased' ? 'Acheté' : 'En attente'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(gift.deadline).toLocaleDateString('fr-FR', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button
-                        onClick={() => router.push(`/user-dashboard/gifts/${gift.id}`)}
-                        className="text-[#1FAD92] hover:text-[#178a74] mr-3"
-                        title="Modifier"
-                      >
-                        <FiEdit2 className="w-5 h-5" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteGift(gift.id)}
-                        className="text-red-600 hover:text-red-800"
-                        title="Supprimer"
-                      >
-                        <FiTrash2 className="w-5 h-5" />
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {loading ? (
+            <div className="col-span-full flex justify-center items-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#1FAD92]"></div>
+              <span className="ml-2 text-gray-500">Chargement...</span>
+            </div>
+          ) : filteredGifts.length === 0 ? (
+            <div className="col-span-full text-center py-8 text-gray-500">
+              Aucun cadeau trouvé
+            </div>
+          ) : (
+            filteredGifts.map((gift) => (
+              <div key={gift.id} className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center">
+                    <span className="text-2xl mr-3">
+                      {categories.find(cat => cat.id === gift.category)?.icon || '📦'}
+                    </span>
+                    <h3 className="text-lg font-semibold text-gray-900">{gift.title}</h3>
+                  </div>
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => {
+                        setEditingGift(gift);
+                        setIsModalOpen(true);
+                      }}
+                      className="text-[#1FAD92] hover:text-[#178a74]"
+                      title="Modifier"
+                    >
+                      <FiEdit2 className="w-5 h-5" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteGift(gift.id)}
+                      className="text-red-600 hover:text-red-800"
+                      title="Supprimer"
+                    >
+                      <FiTrash2 className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <p className="text-sm text-gray-600">{gift.description}</p>
+
+                  <div className="flex justify-end items-center">
+                    <span
+                      className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                        gift.status === 'acquired'
+                          ? 'bg-green-100 text-green-800'
+                          : gift.status === 'cancelled'
+                          ? 'bg-red-100 text-red-800'
+                          : 'bg-yellow-100 text-yellow-800'
+                      }`}
+                    >
+                      {gift.status === 'acquired' ? 'Acquis' : 
+                       gift.status === 'cancelled' ? 'Annulé' : 'À obtenir'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
+
+      {/* Edit Gift Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-8 max-w-2xl w-full mx-4">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">Modifier le cadeau</h2>
+            
+            <div className="space-y-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Titre</label>
+                <input
+                  type="text"
+                  value={editingGift?.title || ''}
+                  onChange={(e) => setEditingGift(prev => prev ? { ...prev, title: e.target.value } : null)}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-[#1FAD92] focus:outline-none focus:ring-1 focus:ring-[#1FAD92]"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <textarea
+                  value={editingGift?.description || ''}
+                  onChange={(e) => setEditingGift(prev => prev ? { ...prev, description: e.target.value } : null)}
+                  rows={3}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-[#1FAD92] focus:outline-none focus:ring-1 focus:ring-[#1FAD92]"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Catégorie</label>
+                  <select
+                    value={editingGift?.category || ''}
+                    onChange={(e) => setEditingGift(prev => prev ? { ...prev, category: e.target.value } : null)}
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-[#1FAD92] focus:outline-none focus:ring-1 focus:ring-[#1FAD92]"
+                  >
+                    {categories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">État</label>
+                  <select
+                    value={editingGift?.status || ''}
+                    onChange={(e) => setEditingGift(prev => prev ? { ...prev, status: e.target.value as Gift['status'] } : null)}
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-[#1FAD92] focus:outline-none focus:ring-1 focus:ring-[#1FAD92]"
+                  >
+                    <option value="to_obtain">À obtenir</option>
+                    <option value="acquired">Acquis</option>
+                    <option value="cancelled">Annulé</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex justify-end space-x-4 mt-8">
+                <button
+                  onClick={() => {
+                    setIsModalOpen(false);
+                    setEditingGift(null);
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#1FAD92]"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={handleSaveEdit}
+                  disabled={saving}
+                  className="px-4 py-2 text-sm font-medium text-white bg-[#1FAD92] border border-transparent rounded-md shadow-sm hover:bg-[#178a74] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#1FAD92] disabled:opacity-50"
+                >
+                  {saving ? 'Enregistrement...' : 'Enregistrer'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

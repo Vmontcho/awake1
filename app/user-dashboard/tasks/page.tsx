@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { collection, getDocs, doc, writeBatch } from 'firebase/firestore';
+import { collection, getDocs, doc, writeBatch, getDoc, updateDoc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { auth, db } from '../../firebase';
 import { FiTrash2, FiEdit2 } from 'react-icons/fi';
@@ -31,6 +31,8 @@ export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterCategory, setFilterCategory] = useState('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -50,13 +52,19 @@ export default function TasksPage() {
     if (!editedTask || !auth.currentUser) return;
 
     try {
+      // First check if the task document exists
       const taskRef = doc(db, 'users', auth.currentUser.uid, 'tasks', editedTask.id);
-      await writeBatch(db)
-        .update(taskRef, {
-          ...editedTask,
-          updatedAt: new Date().toISOString()
-        })
-        .commit();
+      const taskDoc = await getDoc(taskRef);
+
+      if (!taskDoc.exists()) {
+        throw new Error('Task not found');
+      }
+
+      // Update the task document directly
+      await updateDoc(taskRef, {
+        ...editedTask,
+        updatedAt: new Date().toISOString()
+      });
 
       setTasks(prevTasks =>
         prevTasks.map(task =>
@@ -66,9 +74,17 @@ export default function TasksPage() {
 
       setIsModalOpen(false);
       setEditedTask(null);
+
+      // Show success message
+      const successMessage = document.createElement('div');
+      successMessage.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-md shadow-lg';
+      successMessage.textContent = 'Tâche mise à jour avec succès';
+      document.body.appendChild(successMessage);
+      setTimeout(() => successMessage.remove(), 3000);
     } catch (error) {
       console.error('Error updating task:', error);
-      alert('Une erreur est survenue lors de la mise à jour de la tâche.');
+      const errorMessage = error instanceof Error ? error.message : 'Une erreur est survenue lors de la mise à jour de la tâche.';
+      alert(errorMessage);
     }
   };
 
@@ -126,6 +142,16 @@ export default function TasksPage() {
     if (filterCategory !== 'all' && task.categoryId !== filterCategory) return false;
     return true;
   });
+
+  // Calculate pagination
+  const indexOfLastTask = currentPage * itemsPerPage;
+  const indexOfFirstTask = indexOfLastTask - itemsPerPage;
+  const currentTasks = filteredTasks.slice(indexOfFirstTask, indexOfLastTask);
+  const totalPages = Math.ceil(filteredTasks.length / itemsPerPage);
+
+  const handlePageChange = (pageNumber: number) => {
+    setCurrentPage(pageNumber);
+  };
 
   const getCategoryName = (categoryId: string) => {
     const category = categories.find(cat => cat.id === categoryId);
@@ -198,7 +224,7 @@ export default function TasksPage() {
                   </td>
                 </tr>
               ) : (
-                filteredTasks.map((task) => (
+                currentTasks.map((task) => (
                   <tr key={task.id}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                       {task.title}
@@ -248,6 +274,41 @@ export default function TasksPage() {
               )}
             </tbody>
           </table>
+
+          {/* Pagination Controls */}
+          {filteredTasks.length > 0 && (
+            <div className="flex justify-center items-center space-x-2 mt-4">
+              <button
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="px-3 py-1 rounded-md bg-gray-100 text-gray-700 disabled:opacity-50"
+              >
+                Précédent
+              </button>
+              
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                <button
+                  key={page}
+                  onClick={() => handlePageChange(page)}
+                  className={`px-3 py-1 rounded-md ${
+                    currentPage === page
+                      ? 'bg-[#1FAD92] text-white'
+                      : 'bg-gray-100 text-gray-700'
+                  }`}
+                >
+                  {page}
+                </button>
+              ))}
+
+              <button
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1 rounded-md bg-gray-100 text-gray-700 disabled:opacity-50"
+              >
+                Suivant
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
